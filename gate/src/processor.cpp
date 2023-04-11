@@ -1,6 +1,7 @@
 #include "processor.h"
 #include "CIDs.h"
 
+#include <iostream>
 #include <public.sdk/source/vst/vstaudioprocessoralgo.h>
 #include <base/source/fstreamer.h>
 #include <pluginterfaces/base/ibstream.h>
@@ -21,7 +22,6 @@ GateProcessor::GateProcessor ()
   
   // require tempo and time signature from host
   processContextRequirements.needTempo ();
-  processContextRequirements.needTimeSignature ();
 
   // init (set pointer to audio processing function; take float/32bit data type by default)
   processAudioPtr = &GateProcessor::processAudio<float>;
@@ -87,7 +87,7 @@ tresult GateProcessor::processAudio (ProcessData& data)
   
   auto** currentInputBuffers = (SampleType**)getChannelBuffersPointer (processSetup, data.inputs[0]);
   auto** currentOutputBuffers = (SampleType**)getChannelBuffersPointer (processSetup, data.outputs[0]);
-  
+
   SampleType tmp;
   
   if (mBypass)
@@ -124,17 +124,18 @@ tresult GateProcessor::processAudio (ProcessData& data)
         tmp = input[n];
         
         // compute playhead segment
-        double samplesPerSegment = mBeatUnit * mSampleRate * mSyncRate * (1/mTempo) * 60;
+	// tempo is always quarter notes per second, regardless of time signature
+        double samplesPerSegment = mSampleRate * mSyncRate * (1/mTempo) * 60 * 4;
         long segment = (projectTimeSamples + n) / samplesPerSegment;
         
         bool isGated = segment % 2 != 0;
-        
+	
         if (isGated)
         {
           // apply volume reduction
           tmp *= mGateDepth;
         }
-        
+	
         output[n] = tmp;
       }
     }
@@ -189,21 +190,17 @@ void GateProcessor::doParameterChanges (IParameterChanges& changes)
 tresult PLUGIN_API GateProcessor::process (ProcessData& data)
 {
   // process context variable changes, if any
-  if (data.processContext && data.processContext->state
-      & ProcessContext::kTempoValid
-      & ProcessContext::kTimeSigValid)
+  if (data.processContext && data.processContext->state)
     {
-      if (data.processContext->tempo != mTempo)
-      {
-        mTempo = data.processContext->tempo;
-      }
       if (data.processContext->sampleRate != mSampleRate)
       {
         mSampleRate = data.processContext->sampleRate;
       }
-      if (data.processContext->timeSigDenominator != mBeatUnit)
-      {
-        mBeatUnit = data.processContext->timeSigDenominator;
+      if (ProcessContext::kTempoValid) {
+	if (data.processContext->tempo != mTempo)
+        {
+          mTempo = data.processContext->tempo;
+        }
       }
     }
   

@@ -49,7 +49,6 @@ protected:
   // context vars
   double mTempo {120}; // bpm
   double mSampleRate {48000}; // samples per second
-  double mBeatUnit {4}; // 4 beats per measure, i.e. quarter-note pulse
   
   // plugin params
   double mSyncRate {0.125}; // default 1/8 note gate sync
